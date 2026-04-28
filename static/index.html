@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Country Agent</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f0f2f5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      padding: 24px 16px 16px;
+    }
+
+    h1 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: #1a1a2e;
+      margin-bottom: 16px;
+      letter-spacing: -0.3px;
+    }
+
+    #chat-window {
+      width: 100%;
+      max-width: 680px;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      gap: 12px;
+      padding-bottom: 8px;
+      min-height: 0;
+    }
+
+    .bubble {
+      max-width: 75%;
+      padding: 12px 16px;
+      border-radius: 18px;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      word-wrap: break-word;
+    }
+
+    .bubble.user {
+      align-self: flex-end;
+      background: #4f46e5;
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+
+    .bubble.agent {
+      align-self: flex-start;
+      background: white;
+      color: #1a1a2e;
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .bubble.agent .meta {
+      margin-top: 8px;
+      font-size: 0.75rem;
+      color: #888;
+    }
+
+    .bubble.error {
+      align-self: flex-start;
+      background: #fff0f0;
+      color: #c0392b;
+      border-bottom-left-radius: 4px;
+    }
+
+    .bubble.thinking {
+      align-self: flex-start;
+      background: white;
+      color: #888;
+      font-style: italic;
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    #input-row {
+      width: 100%;
+      max-width: 680px;
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    #query-input {
+      flex: 1;
+      padding: 12px 16px;
+      border-radius: 24px;
+      border: 1.5px solid #ddd;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    #query-input:focus {
+      border-color: #4f46e5;
+    }
+
+    #send-btn {
+      padding: 12px 22px;
+      background: #4f46e5;
+      color: white;
+      border: none;
+      border-radius: 24px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    #send-btn:hover  { background: #4338ca; }
+    #send-btn:disabled { background: #a5b4fc; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <h1>🌍 Country Information Agent</h1>
+
+  <div id="chat-window"></div>
+
+  <div id="input-row">
+    <input
+      id="query-input"
+      type="text"
+      placeholder="Ask about any country... e.g. What currency does Japan use?"
+      autocomplete="off"
+    />
+    <button id="send-btn">Ask</button>
+  </div>
+
+  <script>
+    const chatWindow  = document.getElementById("chat-window");
+    const queryInput  = document.getElementById("query-input");
+    const sendBtn     = document.getElementById("send-btn");
+
+    function addBubble(text, type, meta) {
+      const bubble = document.createElement("div");
+      bubble.className = `bubble ${type}`;
+      bubble.textContent = text;
+
+      if (meta) {
+        const metaEl = document.createElement("div");
+        metaEl.className = "meta";
+        metaEl.textContent = meta;
+        bubble.appendChild(metaEl);
+      }
+
+      chatWindow.appendChild(bubble);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+      return bubble;
+    }
+
+    async function sendQuery() {
+      const query = queryInput.value.trim();
+      if (!query) return;
+
+      queryInput.value = "";
+      sendBtn.disabled = true;
+
+      addBubble(query, "user");
+      const thinking = addBubble("Thinking...", "thinking");
+
+      try {
+        const res = await fetch("/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query }),
+        });
+
+        const data = await res.json();
+        thinking.remove();
+
+        if (data.error && !data.answer) {
+          addBubble(data.error, "error");
+        } else {
+          const meta = data.country && data.fields?.length
+            ? `${data.country} · ${data.fields.join(", ")}`
+            : null;
+          addBubble(data.answer, "agent", meta);
+        }
+
+      } catch (err) {
+        thinking.remove();
+        addBubble("Something went wrong. Please try again.", "error");
+      } finally {
+        sendBtn.disabled = false;
+        queryInput.focus();
+      }
+    }
+
+    sendBtn.addEventListener("click", sendQuery);
+    queryInput.addEventListener("keydown", e => {
+      if (e.key === "Enter") sendQuery();
+    });
+  </script>
+</body>
+</html>
