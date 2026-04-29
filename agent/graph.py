@@ -129,7 +129,7 @@ class CountryAgent:
                 ],
             )
 
-            answer = response.output[0].content[0].text.strip()   # ← fixed
+            answer = response.output[0].content[0].text.strip()
             logger.info("synthesis_node | answer=%r", answer)
             return {"answer": answer}
 
